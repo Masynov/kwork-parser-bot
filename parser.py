@@ -6,12 +6,43 @@ from config import KWORK_URL
 
 logger = logging.getLogger(__name__)
 
+# --- СВЕЖИЕ КУКИ С КВОРКА (ОБНОВЛЕНЫ 17 ИЮЛЯ) ---
+RAW_COOKIE_STRING = "list_type_sdisplay=table; group_filters_key=69725a391d13d5.65587118; _ym_uid=1782839502745638617; _ym_d=1782839502; userId=24639956; _kmid=2034075108afd6fe64f198a9a0613e77; _kmfvt=1782839550; uad=246399566a43f8fe26811918644779; csrf_user_token=8d0fa5851a46a726fb777d9c8125597d; show_mobile_app_banner_date=1; RORSSQIHEK=276ea1e7f218977461d0331c93abc861; slrememberme=24639956_%242y%2412%249jWp47ZFbpVL.trDRQDoVeAZexR7qLFQn%2FxIN8UrZpjDmXnQ5X.uG; _ym_isad=2; _ym_visorc=w"
+
+# Парсим сырую строку кук в рабочий словарь для сессии
+COOKIES = {}
+if RAW_COOKIE_STRING:
+    cookie_clean = RAW_COOKIE_STRING.strip()
+    if cookie_clean.lower().startswith("cookie:"):
+        cookie_clean = cookie_clean[7:].strip()
+    for item in cookie_clean.split(";"):
+        if "=" in item:
+            key, val = item.strip().split("=", 1)
+            COOKIES[key] = val
+
+# Заголовки запроса для успешного прохода Cloudflare (без конфликтующих User-Agent)
+HEADERS = {
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+    "Accept-Language": "ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7",
+    "Referer": "https://kwork.ru/projects",
+    "Connection": "keep-alive",
+    "Upgrade-Insecure-Requests": "1"
+}
+
 async def fetch_kwork_orders(session) -> list:
+    """Запрашивает страницу проектов с использованием curl_cffi для обхода защит"""
     try:
         from curl_cffi.requests import AsyncSession
         
         async with AsyncSession() as s:
-            response = await s.get(KWORK_URL, impersonate="chrome", timeout=15)
+            # Отправляем запрос с куками авторизации и маскировкой под Chrome 120
+            response = await s.get(
+                KWORK_URL, 
+                headers=HEADERS, 
+                cookies=COOKIES, 
+                impersonate="chrome120", 
+                timeout=15
+            )
             html = response.text
             
             # Сохраняем слепок для непредвиденных ситуаций
